@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -11,19 +12,30 @@ destination_directory = os.path.expanduser(r"c:\Users\nandini01.c\Downloads")
 file_type_mapping = {
     ".pdf": "PDFs",
     ".jpg": "Images",
+    ".jpeg": "Images",
     ".png": "Images",
+    ".gif": "Images",
+    ".bmp": "Images",
+    ".tiff": "Images",
     ".docx": "Docs",
     ".doc": "Docs",
     ".xlsx": "Excel",
+    ".xls": "Excel",
     ".csv": "Excel",
     ".zip": "Archives",
+    ".rar": "Archives",
+    ".7z": "Archives",
     ".exe": "Executables",
+    ".msi": "Installer",
     ".txt": "Text",
     ".pptx": "PPTs",
+    ".ppt": "PPTs",
     ".py": "Python",
-    ".sh":"Scripts",
-    ".yml":"yaml",
-    
+    ".sh": "Shell Scripts",
+    ".yml": "YAML",
+    ".json": "JSON",
+    ".html": "HTML",
+    ".xml": "XML",
 }
 
 # Define a function to organize a single file
@@ -35,7 +47,9 @@ def organize_file(file_path):
         destination_folder = os.path.join(destination_directory, category)
         if not os.path.exists(destination_folder):
             os.makedirs(destination_folder)
-        shutil.move(file_path, os.path.join(destination_folder, os.path.basename(file_path)))
+        destination_path = os.path.join(destination_folder, os.path.basename(file_path))
+        shutil.move(file_path, destination_path)
+        print(f"Moved '{file_path}' to '{destination_path}'")
 
 # Define a custom event handler that responds to file creation events
 class FileCreatedHandler(FileSystemEventHandler):
@@ -50,19 +64,27 @@ def organize_existing_files():
         for file_name in files:
             file_path = os.path.join(root, file_name)
             organize_file(file_path)
-            
-def organize_file(file_path):
-    _, file_extension = os.path.splitext(file_path)
-    file_extension = file_extension.lower()
-    if file_extension in file_type_mapping:
-        category = file_type_mapping[file_extension]
-        destination_folder = os.path.join(destination_directory, category)
-        if not os.path.exists(destination_folder):
-            os.makedirs(destination_folder)
-        destination_path = os.path.join(destination_folder, os.path.basename(file_path))
-        shutil.move(file_path, destination_path)
-        print(f"Moved '{file_path}' to '{destination_path}'")
 
+# Add a retry mechanism to wait for the file to become available
+def move_file_with_retry(file_path, destination_path):
+    max_retries = 10  # Adjust as needed
+    retry_interval = 1  # Adjust as needed (in seconds)
+    retries = 0
+    while retries < max_retries:
+        try:
+            shutil.move(file_path, destination_path)
+            print(f"Moved '{file_path}' to '{destination_path}'")
+            break  # File moved successfully, exit the loop
+        except PermissionError as e:
+            print(f"PermissionError: {e}. Skipping file: '{file_path}'")
+            break  # Skip this file and exit the loop
+        except Exception as e:
+            print(f"Error moving '{file_path}': {e}")
+            retries += 1
+            time.sleep(retry_interval)
+
+# Call the function to organize existing files
+organize_existing_files()
 
 # Create an observer that monitors the source directory
 observer = Observer()
@@ -71,11 +93,8 @@ observer.schedule(event_handler, path=source_dir, recursive=False)
 observer.start()
 
 try:
-    # Organize existing files first
-    organize_existing_files()
-
-    # Run the observer indefinitely
-    observer.join()
+    while True:
+        time.sleep(1)  # Sleep for a second (adjust as needed)
 except KeyboardInterrupt:
     observer.stop()
 
